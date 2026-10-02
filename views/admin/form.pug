@@ -1,0 +1,88 @@
+extends ../layout.pug
+
+block content
+	main.page-main.admin-form-main
+		div.admin-heading.form-heading
+			div
+				p.eyebrow QUẢN TRỊ THƯ VIỆN
+				h1= isEditing ? 'Cập nhật thuốc' : 'Thêm thuốc mới'
+				p.intro-note Điền nội dung ngắn gọn, chính xác và dễ hiểu.
+			a.text-link(href="/admin") ← Danh sách thuốc
+
+		form.medicine-editor(method="post", action=isEditing ? '/admin/' + medicine.id : '/admin/new', enctype="multipart/form-data")
+			if error
+				p.form-error(role="alert")= error
+			section.editor-section
+				div.editor-section-heading
+					span.section-index 01
+					div
+						h2 Nhận diện thuốc
+						p Tên, hoạt chất và nhóm hiển thị trong kết quả tra cứu.
+				div.editor-grid
+					div.form-field
+						label(for="name") Tên thuốc
+							span.required-mark(aria-hidden="true") *
+						input#name(type="text", name="name", value=medicine.name, maxlength="120", required)
+					div.form-field
+						label(for="generic_name") Hoạt chất
+						input#generic_name(type="text", name="generic_name", value=medicine.generic_name, maxlength="160")
+					div.form-field
+						label(for="category") Nhóm thuốc
+							span.required-mark(aria-hidden="true") *
+						input#category(type="text", name="category", value=medicine.category, list="category-options", maxlength="80", required)
+						datalist#category-options
+							each category in categories
+								option(value=category)
+					div.form-field
+						label(for="brands") Tên thương mại
+						input#brands(type="text", name="brands", value=medicine.brands.join(', '), placeholder="Phân cách bằng dấu phẩy")
+					div.form-field.form-field-wide
+						label(for="summary") Giới thiệu ngắn
+							span.required-mark(aria-hidden="true") *
+						input#summary(type="text", name="summary", value=medicine.summary, maxlength="280", required)
+			section.editor-section
+				div.editor-section-heading
+					span.section-index 02
+					div
+						h2 Thông tin tham khảo
+						p Nội dung sẽ xuất hiện trên trang chi tiết của thuốc.
+				div.editor-grid
+					div.form-field.form-field-wide
+						label(for="description") Thuốc này là gì?
+							span.required-mark(aria-hidden="true") *
+						textarea#description(name="description", rows="4", required)= medicine.description
+					div.form-field.form-field-wide
+						label(for="uses") Công dụng thường gặp
+							span.required-mark(aria-hidden="true") *
+						textarea#uses(name="uses", rows="3", required)= medicine.uses
+					div.form-field.form-field-wide
+						label(for="directions") Cách dùng và liều dùng
+							span.required-mark(aria-hidden="true") *
+						textarea#directions(name="directions", rows="3", required)= medicine.directions
+					div.form-field.form-field-wide
+						label(for="side_effects") Tác dụng không mong muốn
+							span.required-mark(aria-hidden="true") *
+						textarea#side_effects(name="side_effects", rows="3", required)= medicine.side_effects
+					div.form-field.form-field-wide
+						label(for="warnings") Thận trọng
+							span.required-mark(aria-hidden="true") *
+						textarea#warnings(name="warnings", rows="3", required)= medicine.warnings
+			section.editor-section
+				div.editor-section-heading
+					span.section-index 03
+					div
+						h2 Hình ảnh và hiển thị
+						p Ảnh JPG, PNG hoặc WebP, dung lượng tối đa 4 MB.
+				div.editor-grid
+					div.form-field.form-field-wide
+						label(for="image") Ảnh bìa
+						input#image(type="file", name="image", accept="image/jpeg,image/png,image/webp")
+						if isEditing && medicine.image_url
+							img.current-image(src=medicine.image_url, alt="Ảnh hiện tại của " + medicine.name)
+					div.form-field.form-field-wide.featured-field
+						label.checkbox-label
+							input(type="checkbox", name="featured", checked=medicine.featured)
+							span Ưu tiên hiển thị ở đầu thư viện
+			div.editor-actions
+				button.button.button-primary(type="submit")= isEditing ? 'Lưu thay đổi' : 'Thêm vào thư viện'
+				a.button.button-secondary(href="/admin") Hủy

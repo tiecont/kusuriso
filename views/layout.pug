@@ -1,0 +1,33 @@
+doctype html
+html(lang="vi")
+	head
+		meta(charset="UTF-8")
+		meta(name="viewport", content="width=device-width, initial-scale=1.0")
+		meta(name="theme-color", content="#f5f8f6")
+		meta(name="description", content="Thư viện thông tin thuốc dễ tra cứu, có lưu ý an toàn và nguồn tham khảo.")
+		title= title
+		link(rel="preconnect", href="https://fonts.googleapis.com")
+		link(rel="preconnect", href="https://fonts.gstatic.com", crossorigin="anonymous")
+		link(href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap", rel="stylesheet")
+		link(rel="stylesheet", href="/styles.css")
+		script(src="/app.js", defer)
+	body(data-page=pageType || 'generic', data-medicine-slug=recentMedicine ? recentMedicine.slug : '')
+		.site-shell
+			header.topbar
+				a.brand(href="/", aria-label="Kusuriso - trang chủ")
+					span.brand-mark(aria-hidden="true")
+						span.brand-mark-dot
+					span.brand-name Kusuriso
+				nav.primary-nav(aria-label="Điều hướng chính")
+					a.nav-link(href="/#thu-vien") Thư viện
+					if isAdmin
+						a.nav-link(href="/admin") Quản trị
+					else
+						a.nav-link(href="/admin/login") Quản trị
+					if isAdmin
+						form.logout-form(method="post", action="/admin/logout")
+							button.nav-link.logout-button(type="submit") Đăng xuất
+			block content
+			footer.site-footer
+				p.footer-disclaimer Thông tin chỉ nhằm mục đích tham khảo, không thay thế chẩn đoán hay tư vấn của bác sĩ, dược sĩ.
+				span.footer-brand KUSURISO · THƯ VIỆN SỨC KHỎE

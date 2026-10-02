@@ -1,0 +1,20 @@
+extends ../layout.pug
+
+block content
+	main.page-main.auth-main
+		section.auth-panel
+			p.eyebrow QUẢN TRỊ THƯ VIỆN
+			h1 Đăng nhập
+			p.auth-note Chỉ quản trị viên mới có thể thêm, sửa hoặc xóa thông tin.
+			form.auth-form(method="post", action="/admin/login")
+				div.form-field
+					label(for="username") Tên đăng nhập
+					input#username(type="text", name="username", autocomplete="username", required, autofocus)
+				div.form-field
+					label(for="password") Mật khẩu
+					input#password(type="password", name="password", autocomplete="current-password", required)
+				if hasError
+					p.form-error(role="alert") Tên đăng nhập hoặc mật khẩu chưa chính xác.
+				button.button.button-primary(type="submit") Đăng nhập
+			p.auth-back
+				a.text-link(href="/") ← Về thư viện thuốc

@@ -1,0 +1,48 @@
+extends ../layout.pug
+
+block content
+	main.page-main.admin-main
+		div.admin-heading
+			div
+				p.eyebrow KHU VỰC QUẢN TRỊ
+				h1 Thư viện thuốc
+				p.intro-note #{medicines.length} mục thông tin đang được xuất bản
+			a.button.button-primary(href="/admin/new")
+				span.button-plus(aria-hidden="true") +
+				span Thêm thuốc
+			if notice
+				p.notice(role="status")= notice
+
+		section.admin-list(aria-labelledby="admin-list-heading")
+			div.admin-list-heading
+				h2#admin-list-heading Tất cả thuốc
+				span.section-count= medicines.length
+			if medicines.length
+				div.table-scroll
+					table.medicine-table
+						thead
+							tr
+								th(scope="col") Tên thuốc
+								th(scope="col") Nhóm
+								th(scope="col") Cập nhật
+								th(scope="col") Thao tác
+						tbody
+							each medicine in medicines
+								tr
+									td
+										div.table-medicine-name
+											img.table-thumb(src=medicine.image_url || 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=120&q=70', alt="", loading="lazy")
+											div
+												strong= medicine.name
+												span= medicine.generic_name || 'Chưa khai báo hoạt chất'
+									td
+									span.table-category= medicine.category
+								td= medicine.updated_at.toLocaleDateString('vi-VN')
+								td
+									div.table-actions
+										a.text-action(href="/thuoc/" + medicine.slug) Xem
+										a.text-action(href="/admin/" + medicine.id + "/edit") Sửa
+										form.inline-form(method="post", action="/admin/" + medicine.id + "/delete", onsubmit="return confirm('Xóa mục thuốc này khỏi thư viện?')")
+											button.text-action.delete-action(type="submit") Xóa
+			else
+				p.admin-empty Chưa có mục thuốc nào trong thư viện.
