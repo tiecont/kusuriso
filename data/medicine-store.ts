@@ -16,17 +16,55 @@ export type Medicine = {
   warnings: string
   image_url: string | null
   featured: boolean
+  is_demo: boolean
   created_at: Date
   updated_at: Date
 }
 
-export type MedicineInput = Omit<Medicine, 'id' | 'slug' | 'created_at' | 'updated_at'> & {
+export type MedicineInput = Omit<Medicine, 'id' | 'slug' | 'created_at' | 'updated_at' | 'is_demo'> & {
   slug?: string
 }
 
-export async function searchMedicines(query = '', category = ''): Promise<Medicine[]> {
+export type PublicMedicine = {
+  slug: string
+  name: string
+  genericName: string
+  brands: string[]
+  category: string
+  summary: string
+  description: string
+  uses: string
+  directions: string
+  sideEffects: string
+  warnings: string
+  imageUrl: string | null
+  featured: boolean
+  isDemo: boolean
+}
+
+export function toPublicMedicine(medicine: Medicine): PublicMedicine {
+  return {
+    slug: medicine.slug, name: medicine.name, genericName: medicine.generic_name, brands: medicine.brands,
+    category: medicine.category, summary: medicine.summary, description: medicine.description,
+    uses: medicine.uses, directions: medicine.directions, sideEffects: medicine.side_effects,
+    warnings: medicine.warnings, imageUrl: medicine.image_url, featured: medicine.featured,
+    isDemo: medicine.is_demo,
+  }
+}
+
+export function toLegacyMedicine(medicine: Medicine): Record<string, unknown> {
+  return {
+    slug: medicine.slug, name: medicine.name, generic_name: medicine.generic_name, brands: medicine.brands,
+    category: medicine.category, summary: medicine.summary, description: medicine.description,
+    uses: medicine.uses, directions: medicine.directions, side_effects: medicine.side_effects,
+    warnings: medicine.warnings, image_url: medicine.image_url, featured: medicine.featured,
+    is_demo: medicine.is_demo,
+  }
+}
+
+export async function searchMedicines(query = '', category = '', limit = 30, offset = 0): Promise<Medicine[]> {
   const conditions: string[] = []
-  const values: string[] = []
+  const values: Array<string | number> = []
 
   if (query.trim()) {
     const escapedQuery = query.trim().replace(/[\\%_]/g, '\\$&')
@@ -35,13 +73,6 @@ export async function searchMedicines(query = '', category = ''): Promise<Medici
       name ILIKE $${values.length} ESCAPE '\\'
       OR generic_name ILIKE $${values.length} ESCAPE '\\'
       OR array_to_string(brands, ' ') ILIKE $${values.length} ESCAPE '\\'
-      OR category ILIKE $${values.length} ESCAPE '\\'
-      OR summary ILIKE $${values.length} ESCAPE '\\'
-      OR description ILIKE $${values.length} ESCAPE '\\'
-      OR uses ILIKE $${values.length} ESCAPE '\\'
-      OR directions ILIKE $${values.length} ESCAPE '\\'
-      OR side_effects ILIKE $${values.length} ESCAPE '\\'
-      OR warnings ILIKE $${values.length} ESCAPE '\\'
     )`)
   }
 
@@ -51,10 +82,16 @@ export async function searchMedicines(query = '', category = ''): Promise<Medici
   }
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+  values.push(Math.min(Math.max(limit, 1), 50), Math.max(offset, 0))
   const { rows } = await pool.query<Medicine>(
-    `SELECT * FROM medicines ${whereClause} ORDER BY featured DESC, name ASC`,
+    `SELECT * FROM medicines ${whereClause} ORDER BY featured DESC, name ASC LIMIT $${values.length - 1} OFFSET $${values.length}`,
     values,
   )
+  return rows
+}
+
+export async function listMedicines(): Promise<Medicine[]> {
+  const { rows } = await pool.query<Medicine>('SELECT * FROM medicines ORDER BY name ASC')
   return rows
 }
 

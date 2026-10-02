@@ -1,0 +1,8 @@
+services:
+  web:
+    ports: !reset []
+    expose: ["3000"]
+  postgres:
+    ports: !reset []
+  minio:
+    ports: !reset []

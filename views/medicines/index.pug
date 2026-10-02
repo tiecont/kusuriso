@@ -10,11 +10,11 @@ block content
 				form.search-form(method="get", action="/", role="search")
 					label.visually-hidden(for="medicine-search") Tìm thuốc hoặc hoạt chất
 					span.search-icon(aria-hidden="true")
-					input#medicine-search(type="search", name="q", value=query, placeholder="Tên thuốc, hoạt chất, triệu chứng...", autocomplete="off")
+					input#medicine-search(type="search", name="q", value=query, placeholder="Tên thuốc, hoạt chất hoặc tên thương mại...", autocomplete="off")
 					button.button.button-primary(type="submit") Tìm kiếm
-				p.intro-hint Bắt đầu với tên thuốc hoặc hoạt chất, ví dụ: paracetamol
+				p.intro-hint Ví dụ: paracetamol, acetaminophen, Panadol
 			div.intro-visual
-				img.intro-photo(src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=1200&q=85", alt="Các viên thuốc phổ thông không nhãn trên nền sáng", fetchpriority="high")
+				img.intro-photo(src="/medicine-photo.jpg", alt="Các viên thuốc phổ thông không nhãn trên nền sáng", width="1200", height="800", fetchpriority="high")
 				div.visual-caption
 					span.caption-mark(aria-hidden="true")
 					span Kiến thức rõ ràng, lưu ý an toàn
@@ -29,15 +29,15 @@ block content
 					if query
 						input(type="hidden", name="q", value=query)
 					label.visually-hidden(for="category-filter") Lọc theo nhóm thuốc
-					select#category-filter(name="category", onchange="this.form.submit()")
+					select#category-filter(name="category", data-category-filter)
 						option(value="", selected=!selectedCategory) Tất cả nhóm
 						each category in categories
 							option(value=category, selected=selectedCategory === category)= category
 
 			div.library-controls
-				div.view-tabs(role="tablist", aria-label="Nội dung thư viện")
-					button.view-tab.is-active(type="button", role="tab", aria-selected="true", data-library-filter="all") Tất cả
-					button.view-tab(type="button", role="tab", aria-selected="false", data-library-filter="saved")
+				div.view-tabs(role="group", aria-label="Nội dung thư viện")
+					button.view-tab.is-active(type="button", aria-pressed="true", data-library-filter="all") Tất cả
+					button.view-tab(type="button", aria-pressed="false", data-library-filter="saved")
 						span Đã lưu
 						span.saved-count(data-saved-count) 0
 				div.view-modes(role="group", aria-label="Kiểu hiển thị")
@@ -51,12 +51,14 @@ block content
 					article.medicine-card(data-medicine-card, data-slug=medicine.slug)
 						div.card-image-wrap
 							a.card-image-link(href="/thuoc/" + medicine.slug, tabindex="-1", aria-hidden="true")
-								img.card-image(src=medicine.image_url || 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=900&q=78', alt="", loading="lazy")
+								img.card-image(src=medicine.image_url || '/medicine-placeholder.svg', alt="", width="640", height="400", loading="lazy")
 							span.card-category= medicine.category
 							button.favorite-toggle(type="button", data-favorite-toggle, data-slug=medicine.slug, data-name=medicine.name, data-category=medicine.category, data-image=medicine.image_url || '', aria-label="Lưu " + medicine.name, aria-pressed="false", title="Lưu thuốc")
 								span(aria-hidden="true") ☆
 						div.card-content
 							a.card-content-link(href="/thuoc/" + medicine.slug)
+								if medicine.is_demo
+									span.demo-label Nội dung minh họa
 								div.card-name-row
 									h3= medicine.name
 									span.card-arrow(aria-hidden="true") ↗
@@ -73,8 +75,8 @@ block content
 
 			div.empty-state(data-no-results, hidden=medicines.length > 0)
 				span.empty-icon(aria-hidden="true") ?
-				h3 Chưa tìm thấy thuốc phù hợp
-				p Thử tên hoạt chất khác hoặc chọn “Tất cả nhóm”.
+				h3 Chưa tìm thấy tên thuốc hoặc hoạt chất phù hợp.
+				p Kiểm tra chính tả hoặc thử tên thương mại khác.
 				if query || selectedCategory
 					a.text-link(href="/") Xóa bộ lọc
 
@@ -82,6 +84,13 @@ block content
 				span.empty-icon(aria-hidden="true") ☆
 				h3 Chưa có thuốc đã lưu
 				p Các mục bạn đánh dấu sẽ xuất hiện ở đây.
+			if page > 1 || hasNextPage
+				nav.library-pagination(data-pagination, aria-label="Trang kết quả")
+					if page > 1
+						a.text-link(href='/?' + new URLSearchParams({q: query, category: selectedCategory, page: String(page - 1)})) ← Trang trước
+					span Trang #{page}
+					if hasNextPage
+						a.text-link(href='/?' + new URLSearchParams({q: query, category: selectedCategory, page: String(page + 1)})) Trang sau →
 
 		section.recent-section(data-recent-section, hidden, aria-labelledby="recent-heading")
 			div.recent-heading

@@ -1,0 +1,90 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run audit
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: medicine
+          POSTGRES_PASSWORD: ci-database-password
+          POSTGRES_DB: medicine
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U medicine -d medicine"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: medicine
+      PGPASSWORD: ci-database-password
+      PGDATABASE: medicine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run db:migrate
+        env:
+          NODE_ENV: test
+          ADMIN_USER: ci-admin
+          ADMIN_PASSWORD: ci-admin-password-123
+          JWT_SECRET: ci-jwt-secret-with-more-than-thirty-two-characters
+          COOKIE_SECURE: 'false'
+          MINIO_ENDPOINT: http://127.0.0.1:9000
+          MINIO_PUBLIC_URL: http://127.0.0.1:9000
+          MINIO_BUCKET: medicines
+          MINIO_ACCESS_KEY: ci-storage-user
+          MINIO_SECRET_KEY: ci-storage-password
+      - run: npm run test:integration
+
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_USER: medicine
+      POSTGRES_PASSWORD: ci-database-password
+      POSTGRES_DB: medicine
+      ADMIN_USER: ci-admin
+      ADMIN_PASSWORD: ci-admin-password-123
+      JWT_SECRET: ci-jwt-secret-with-more-than-thirty-two-characters
+      COOKIE_SECURE: 'false'
+      MINIO_ROOT_USER: ci-storage-user
+      MINIO_ROOT_PASSWORD: ci-storage-password
+      MINIO_BUCKET: medicines
+      E2E_ADMIN_USER: ci-admin
+      E2E_ADMIN_PASSWORD: ci-admin-password-123
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: docker compose up --build -d
+      - run: docker compose run --rm web npm run db:seed
+      - run: npm run test:e2e
+      - if: always()
+        run: docker compose down

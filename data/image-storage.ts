@@ -7,18 +7,20 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3'
+import { config } from '../config/env.js'
+import { normalizeImage } from './image-processing.js'
 
-const bucket = process.env.MINIO_BUCKET ?? 'medicines'
-const publicEndpoint = (process.env.MINIO_PUBLIC_URL ?? 'http://localhost:9000').replace(/\/$/, '')
-const endpoint = process.env.MINIO_ENDPOINT ?? 'http://localhost:9000'
+const bucket = config.minio.bucket
+const publicEndpoint = config.minio.publicUrl.replace(/\/$/, '')
+const endpoint = config.minio.endpoint
 
 const client = new S3Client({
   endpoint,
-  region: process.env.MINIO_REGION ?? 'us-east-1',
+  region: config.minio.region,
   forcePathStyle: true,
   credentials: {
-    accessKeyId: process.env.MINIO_ACCESS_KEY ?? 'minioadmin',
-    secretAccessKey: process.env.MINIO_SECRET_KEY ?? 'minioadmin',
+    accessKeyId: config.minio.accessKey,
+    secretAccessKey: config.minio.secretKey,
   },
 })
 
@@ -58,15 +60,27 @@ export async function initializeImageStorage(): Promise<void> {
   }))
 }
 
+export async function checkImageStorage(): Promise<void> {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    try {
+      await client.send(new HeadBucketCommand({ Bucket: bucket }))
+      return
+    } catch (error) {
+      if (attempt === 29) throw error
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
+  }
+}
+
 export async function saveMedicineImage(file: Express.Multer.File): Promise<string> {
-  const extension = file.mimetype === 'image/png' ? 'png' : file.mimetype === 'image/webp' ? 'webp' : 'jpg'
-  const key = `${randomUUID()}.${extension}`
+  const body = await normalizeImage(file.buffer)
+  const key = `${randomUUID()}.jpg`
   await client.send(new PutObjectCommand({
     Bucket: bucket,
     Key: key,
-    Body: file.buffer,
-    ContentLength: file.size,
-    ContentType: file.mimetype,
+    Body: body,
+    ContentLength: body.length,
+    ContentType: 'image/jpeg',
   }))
   return `${publicEndpoint}/${bucket}/${key}`
 }
