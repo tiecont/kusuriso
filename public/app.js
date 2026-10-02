@@ -1,6 +1,6 @@
 (() => {
   const storageKey = 'kusuriso:preferences:v1'
-  const fallbackImage = 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=900&q=78'
+  const fallbackImage = '/medicine-placeholder.svg'
   const defaults = { favorites: [], recent: [], view: 'grid', filter: 'all', scrollPositions: {} }
   const grid = document.querySelector('[data-medicine-grid]')
   const originalCards = grid ? [...grid.querySelectorAll('[data-medicine-card]')] : []
@@ -31,6 +31,12 @@
   }
 
   const preferences = loadPreferences()
+
+  document.addEventListener('error', (event) => {
+    if (event.target instanceof HTMLImageElement && !event.target.src.endsWith(fallbackImage)) {
+      event.target.src = fallbackImage
+    }
+  }, true)
 
   function savePreferences() {
     try {
@@ -111,6 +117,12 @@
     const contentLink = document.createElement('a')
     contentLink.className = 'card-content-link'
     contentLink.href = detailUrl
+    if (medicine.is_demo) {
+      const demo = document.createElement('span')
+      demo.className = 'demo-label'
+      demo.textContent = 'Nội dung minh họa'
+      contentLink.append(demo)
+    }
     const nameRow = document.createElement('div')
     nameRow.className = 'card-name-row'
     const heading = document.createElement('h3')
@@ -216,6 +228,8 @@
     const noResults = document.querySelector('[data-no-results]')
     const noSaved = document.querySelector('[data-no-saved]')
     const resultCount = document.querySelector('[data-result-count]')
+    const pagination = document.querySelector('[data-pagination]')
+    if (pagination) pagination.hidden = preferences.filter === 'saved'
 
     if (preferences.filter === 'saved') {
       renderSavedItems()
@@ -239,7 +253,7 @@
     document.querySelectorAll('[data-library-filter]').forEach((button) => {
       const selected = button.dataset.libraryFilter === preferences.filter
       button.classList.toggle('is-active', selected)
-      button.setAttribute('aria-selected', String(selected))
+      button.setAttribute('aria-pressed', String(selected))
     })
   }
 
@@ -332,6 +346,16 @@
       if (section) section.hidden = true
     }
   })
+
+  document.querySelector('[data-category-filter]')?.addEventListener('change', (event) => {
+    event.currentTarget.form?.requestSubmit()
+  })
+  document.querySelectorAll('[data-delete-name]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!confirm(`Xóa ${form.dataset.deleteName} khỏi thư viện?`)) event.preventDefault()
+    })
+  })
+  document.querySelector('#form-error')?.focus()
 
   window.addEventListener('storage', (event) => {
     if (event.key && event.key !== storageKey) return

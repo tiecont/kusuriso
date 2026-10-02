@@ -10,6 +10,8 @@ block content
 		section.detail-header
 			div.detail-heading
 				p.eyebrow= medicine.category.toUpperCase()
+				if medicine.is_demo
+					p.demo-label Nội dung minh họa · Chưa kiểm duyệt
 				div.detail-title-line
 					h1= medicine.name
 					button.favorite-toggle.detail-favorite(type="button", data-favorite-toggle, data-slug=medicine.slug, data-name=medicine.name, data-category=medicine.category, data-image=medicine.image_url || '', aria-label="Lưu " + medicine.name, aria-pressed="false", title="Lưu thuốc")
@@ -20,7 +22,7 @@ block content
 					p.detail-brands Tên thương mại thường gặp: #{medicine.brands.join(' · ')}
 				p.detail-summary= medicine.summary
 			div.detail-image-wrap
-				img.detail-image(src=medicine.image_url || 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=1100&q=82', alt="Hình minh họa thuốc " + medicine.name)
+				img.detail-image(src=medicine.image_url || '/medicine-placeholder.svg', alt=medicine.image_url ? 'Hình ảnh của ' + medicine.name : '', width="640", height="400")
 
 		aside.safety-banner(role="note")
 			span.safety-icon(aria-hidden="true") !

@@ -2,6 +2,9 @@ import { timingSafeEqual } from 'node:crypto'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import jwt from 'jsonwebtoken'
 import multer from 'multer'
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
+import { config } from '../config/env.js'
+import { pool } from '../data/database.js'
 import {
   createMedicine,
   deleteMedicine,
@@ -9,7 +12,10 @@ import {
   getMedicineById,
   getMedicineBySlug,
   getMedicinesBySlugs,
+  listMedicines,
   searchMedicines,
+  toLegacyMedicine,
+  toPublicMedicine,
   updateMedicine,
   type Medicine,
   type MedicineInput,
@@ -18,7 +24,14 @@ import { removeMedicineImage, saveMedicineImage } from '../data/image-storage.js
 
 const router = express.Router()
 const cookieName = 'kusuriso_admin'
-const jwtSecret = process.env.JWT_SECRET || 'development-jwt-secret-change-this'
+const jwtSecret = config.jwt.secret
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 8, standardHeaders: 'draft-8', legacyHeaders: false,
+  keyGenerator: (req) => `${ipKeyGenerator(req.ip ?? '')}:${stringValue(req.body?.username).toLowerCase().slice(0, 80)}`,
+  skipSuccessfulRequests: true,
+  requestWasSuccessful: (_req, res) => res.statusCode === 302 && res.getHeader('Location') === '/admin',
+  message: 'Đăng nhập quá nhiều lần. Vui lòng thử lại sau.' })
+const apiLimiter = rateLimit({ windowMs: 60 * 1000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false })
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 4 * 1024 * 1024, files: 1 },
@@ -36,26 +49,43 @@ router.use((req, res, next) => {
   next()
 })
 
+router.use('/api', apiLimiter)
+router.use('/admin', (req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next()
+  const origin = req.get('origin')
+  try {
+    if (origin) {
+      const parsed = new URL(origin)
+      const expectedProtocol = config.jwt.cookieSecure ? 'https:' : `${req.protocol}:`
+      if (parsed.host === req.get('host') && parsed.protocol === expectedProtocol) return next()
+    }
+  } catch { /* Invalid origins are rejected below. */ }
+  return res.status(403).send('Nguồn yêu cầu không hợp lệ.')
+})
+
 router.get('/', async (req, res) => {
-  const query = stringValue(req.query.q)
+  const query = stringValue(req.query.q).trim().slice(0, 120)
   const category = stringValue(req.query.category)
+  const page = Math.min(Math.max(Number.parseInt(stringValue(req.query.page), 10) || 1, 1), 334)
   const [medicines, categories] = await Promise.all([
-    searchMedicines(query, category),
+    searchMedicines(query, category, 31, (page - 1) * 30),
     getCategories(),
   ])
 
   res.render('medicines/index', {
     title: 'Tra cứu thuốc | Kusuriso',
-    medicines,
+    medicines: medicines.slice(0, 30),
     categories,
     query,
     selectedCategory: category,
+    page,
+    hasNextPage: medicines.length > 30,
     pageType: 'home',
   })
 })
 
 router.get('/thuoc/:slug', async (req, res) => {
-  const medicine = await getMedicineBySlug(req.params.slug)
+  const medicine = await getMedicineBySlug(stringValue(req.params.slug))
   if (!medicine) return res.status(404).render('not-found', { title: 'Không tìm thấy thuốc | Kusuriso' })
 
   res.render('medicines/detail', {
@@ -66,20 +96,25 @@ router.get('/thuoc/:slug', async (req, res) => {
   })
 })
 
-router.get('/api/medicines', async (req, res) => {
-  const medicines = await searchMedicines(stringValue(req.query.q), stringValue(req.query.category))
-  res.json(medicines)
+router.get(['/api/medicines', '/api/v1/medicines'], async (req, res) => {
+  const query = stringValue(req.query.q).trim()
+  if (query.length > 120) return res.status(400).json({ error: 'Từ khóa tối đa 120 ký tự.' })
+  const limit = parsePageNumber(req.query.limit, 30, 50)
+  const offset = parsePageNumber(req.query.offset, 0, 10000)
+  if (limit === null || limit === 0 || offset === null) return res.status(400).json({ error: 'Phân trang không hợp lệ.' })
+  const medicines = await searchMedicines(query, stringValue(req.query.category), limit, offset)
+  res.json(medicines.map(req.path.startsWith('/api/v1/') ? toPublicMedicine : toLegacyMedicine))
 })
 
-router.get('/api/medicines/by-slug', async (req, res) => {
+router.get(['/api/medicines/by-slug', '/api/v1/medicines/by-slug'], async (req, res) => {
   const slugs = stringValue(req.query.slugs).split(',').filter(Boolean).slice(0, 50)
-  res.json(await getMedicinesBySlugs(slugs))
+  res.json((await getMedicinesBySlugs(slugs)).map(req.path.startsWith('/api/v1/') ? toPublicMedicine : toLegacyMedicine))
 })
 
-router.get('/api/medicines/:slug', async (req, res) => {
-  const medicine = await getMedicineBySlug(req.params.slug)
+router.get(['/api/medicines/:slug', '/api/v1/medicines/:slug'], async (req, res) => {
+  const medicine = await getMedicineBySlug(stringValue(req.params.slug))
   if (!medicine) return res.status(404).json({ error: 'Không tìm thấy thuốc.' })
-  res.json(medicine)
+  res.json(req.path.startsWith('/api/v1/') ? toPublicMedicine(medicine) : toLegacyMedicine(medicine))
 })
 
 router.get('/admin/login', (req, res) => {
@@ -90,9 +125,9 @@ router.get('/admin/login', (req, res) => {
   })
 })
 
-router.post('/admin/login', (req, res) => {
-  const username = process.env.ADMIN_USER ?? 'admin'
-  const password = process.env.ADMIN_PASSWORD ?? 'admin123'
+router.post('/admin/login', loginLimiter, (req, res) => {
+  const username = config.admin.user
+  const password = config.admin.password
   if (!secureEquals(stringValue(req.body.username), username) || !secureEquals(stringValue(req.body.password), password)) {
     return res.redirect('/admin/login?error=1')
   }
@@ -107,7 +142,7 @@ router.post('/admin/login', (req, res) => {
   res.cookie(cookieName, token, {
     httpOnly: true,
     sameSite: 'strict',
-    secure: process.env.COOKIE_SECURE === 'true',
+    secure: config.jwt.cookieSecure,
     maxAge: 8 * 60 * 60 * 1000,
     path: '/',
   })
@@ -122,7 +157,7 @@ router.post('/admin/logout', (_req, res) => {
 })
 
 router.get('/admin', async (req, res) => {
-  const medicines = await searchMedicines()
+  const medicines = await listMedicines()
   res.render('admin/index', {
     title: 'Quản trị thư viện | Kusuriso',
     medicines,
@@ -154,11 +189,13 @@ router.post('/admin/new', upload.single('image'), async (req, res) => {
     return res.redirect('/admin?status=created')
   } catch (error) {
     await removeMedicineImage(imageUrl)
+    if (isImageError(error)) return renderFormError(res, input, false, error.message)
     throw error
   }
 })
 
 router.get('/admin/:id/edit', async (req, res) => {
+  if (!uuidPattern.test(req.params.id)) return res.status(400).send('ID thuốc không hợp lệ.')
   const medicine = await getMedicineById(req.params.id)
   if (!medicine) return res.status(404).render('not-found', { title: 'Không tìm thấy thuốc | Kusuriso' })
 
@@ -173,6 +210,7 @@ router.get('/admin/:id/edit', async (req, res) => {
 
 router.post('/admin/:id', upload.single('image'), async (req, res) => {
   const id = stringValue(req.params.id)
+  if (!uuidPattern.test(id)) return res.status(400).send('ID thuốc không hợp lệ.')
   const existing = await getMedicineById(id)
   if (!existing) return res.status(404).render('not-found', { title: 'Không tìm thấy thuốc | Kusuriso' })
 
@@ -194,11 +232,13 @@ router.post('/admin/:id', upload.single('image'), async (req, res) => {
     return res.redirect('/admin?status=saved')
   } catch (error) {
     await removeMedicineImage(newImageUrl)
+    if (isImageError(error)) return renderFormError(res, input, true, error.message, existing.id)
     throw error
   }
 })
 
 router.post('/admin/:id/delete', async (req, res) => {
+  if (!uuidPattern.test(req.params.id)) return res.status(400).send('ID thuốc không hợp lệ.')
   const deleted = await deleteMedicine(req.params.id)
   if (!deleted) return res.status(404).render('not-found', { title: 'Không tìm thấy thuốc | Kusuriso' })
   await removeMedicineImage(deleted.image_url)
@@ -207,6 +247,15 @@ router.post('/admin/:id/delete', async (req, res) => {
 
 router.get('/healthz', (_req, res) => {
   res.json({ status: 'ok' })
+})
+
+router.get('/readyz', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1 FROM schema_migrations LIMIT 1')
+    res.json({ status: 'ready' })
+  } catch {
+    res.status(503).json({ status: 'unavailable' })
+  }
 })
 
 router.use((req, res) => {
@@ -219,7 +268,7 @@ router.use((error: unknown, _req: Request, res: Response, next: NextFunction) =>
       ? 'Ảnh tải lên tối đa 4 MB.'
       : 'Không thể nhận tệp ảnh này.')
   }
-  if (error instanceof Error && error.message.startsWith('Vui lòng chọn ảnh')) {
+  if (error instanceof Error && (error.message.startsWith('Vui lòng chọn ảnh') || error.message.startsWith('Ảnh tải lên'))) {
     return res.status(400).send(error.message)
   }
   return next(error)
@@ -244,7 +293,7 @@ function hasAdminSession(req: Request): boolean {
     })
     return typeof payload !== 'string'
       && payload.role === 'admin'
-      && payload.sub === (process.env.ADMIN_USER ?? 'admin')
+      && payload.sub === config.admin.user
   } catch {
     return false
   }
@@ -267,6 +316,17 @@ function secureEquals(left: string, right: string): boolean {
 
 function stringValue(value: unknown): string {
   return typeof value === 'string' ? value : ''
+}
+
+function isImageError(error: unknown): error is Error {
+  return error instanceof Error && (error.message.startsWith('Vui lòng chọn ảnh') || error.message.startsWith('Ảnh tải lên'))
+}
+
+function parsePageNumber(value: unknown, defaultValue: number, max: number): number | null {
+  if (value === undefined) return defaultValue
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 0) return null
+  return Math.min(parsed, max)
 }
 
 function medicineInput(body: Record<string, unknown>, imageUrl: string | null): MedicineInput {

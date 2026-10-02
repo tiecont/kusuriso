@@ -6,7 +6,16 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "tsc",
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test",
+    "audit": "npm audit --audit-level=high",
+    "db:migrate": "node dist/scripts/db.js migrate",
+    "db:seed": "node dist/scripts/db.js seed",
+    "storage:setup": "node dist/scripts/storage.js",
     "start": "npm run build && node dist/server.js",
     "start:prod": "node dist/server.js",
     "dev": "tsx watch server.ts"
@@ -14,18 +23,25 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1145.0",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.4.0",
     "pg": "^8.23.1",
-    "pug": "^3.0.4"
+    "pug": "^3.0.4",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.3.0",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.3.1",
     "tsx": "^4.23.15",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.3"
   }
 }

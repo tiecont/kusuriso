@@ -11,7 +11,7 @@ block content
 
 		form.medicine-editor(method="post", action=isEditing ? '/admin/' + medicine.id : '/admin/new', enctype="multipart/form-data")
 			if error
-				p.form-error(role="alert")= error
+					p.form-error#form-error(role="alert", tabindex="-1")= error
 			section.editor-section
 				div.editor-section-heading
 					span.section-index 01

@@ -8,8 +8,8 @@ block content
 				h1 Thư viện thuốc
 				p.intro-note #{medicines.length} mục thông tin đang được xuất bản
 			a.button.button-primary(href="/admin/new")
-				span.button-plus(aria-hidden="true") +
-				span Thêm thuốc
+					span.button-plus(aria-hidden="true") +
+					span Thêm thuốc
 			if notice
 				p.notice(role="status")= notice
 
@@ -18,7 +18,7 @@ block content
 				h2#admin-list-heading Tất cả thuốc
 				span.section-count= medicines.length
 			if medicines.length
-				div.table-scroll
+				div.table-scroll(tabindex="0", role="region", aria-label="Danh sách thuốc, cuộn ngang để xem các cột")
 					table.medicine-table
 						thead
 							tr
@@ -31,18 +31,18 @@ block content
 								tr
 									td
 										div.table-medicine-name
-											img.table-thumb(src=medicine.image_url || 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=120&q=70', alt="", loading="lazy")
+											img.table-thumb(src=medicine.image_url || '/medicine-placeholder.svg', alt="", width="40", height="40", loading="lazy")
 											div
 												strong= medicine.name
 												span= medicine.generic_name || 'Chưa khai báo hoạt chất'
 									td
-									span.table-category= medicine.category
-								td= medicine.updated_at.toLocaleDateString('vi-VN')
-								td
-									div.table-actions
-										a.text-action(href="/thuoc/" + medicine.slug) Xem
-										a.text-action(href="/admin/" + medicine.id + "/edit") Sửa
-										form.inline-form(method="post", action="/admin/" + medicine.id + "/delete", onsubmit="return confirm('Xóa mục thuốc này khỏi thư viện?')")
-											button.text-action.delete-action(type="submit") Xóa
+										span.table-category= medicine.category
+									td= medicine.updated_at.toLocaleDateString('vi-VN')
+									td
+										div.table-actions
+											a.text-action(href="/thuoc/" + medicine.slug) Xem
+											a.text-action(href="/admin/" + medicine.id + "/edit") Sửa
+											form.inline-form(method="post", action="/admin/" + medicine.id + "/delete", data-delete-name=medicine.name)
+												button.text-action.delete-action(type="submit") Xóa
 			else
 				p.admin-empty Chưa có mục thuốc nào trong thư viện.

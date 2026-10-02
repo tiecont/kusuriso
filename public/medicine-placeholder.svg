@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Chưa có ảnh thuốc">
+  <rect width="640" height="400" fill="#e8efec"/>
+  <rect x="220" y="156" width="200" height="88" rx="44" fill="#fff" stroke="#93ada0" stroke-width="8"/>
+  <path d="M320 160v80" stroke="#93ada0" stroke-width="8"/>
+  <path d="M320 160h56a40 40 0 0 1 0 80h-56" fill="#bfd6c7"/>
+</svg>
